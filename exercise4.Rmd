@@ -1,0 +1,355 @@
+---
+title: "Week4"
+author: "Jackie Schwartz"
+date: "7/24/2019"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+  html_notebook:
+    toc: yes
+    toc_float: yes
+---
+
+The goal for today is to review last week's material on CI and SE bars  
+with a new dataset.
+
+# Loading Libraries
+```{r}
+library(tidyverse)
+library(haven)
+library(modelr)
+library(readxl)
+library(NHANES)
+library(assertthat)
+library(datasets)
+```
+
+# Loading dataset
+```{r}
+tg <- data.frame(datasets::ToothGrowth)
+glimpse(tg)
+```
+What do you notice?  
+3 variables:   
+`len` (numeric),   
+`supp` (factor - OJ or vitamin C),   
+`dose` (numeric)
+60 observations    
+
+What's our IV?  
+
+What's our DV?  
+
+# Create a summary table  
+
+## Grouping by tx group
+
+```{r}
+sum_table <-
+  tg %>%
+  group_by(supp) %>%
+  summarise(
+    mean_len = mean(len),
+    sd_len = sd(len),
+    min_len = min(len),
+    max_len = max(len)
+  )
+```
+
+## Grouping by tx group and dose  
+Even though dose is numeric, it really should be treated like an  
+ordinal (or factor) so that we can group by it (small, med, large) 
+
+```{r}
+tg <-
+  tg %>%
+  mutate(
+    dose_fct =
+      as.factor(dose),
+    dose_fct =
+      recode_factor(dose_fct,
+                    "0.5" = "small",
+                    "1" = "med",
+                    "2" = "lrg")
+    )
+sum_table <-
+  tg %>%
+  group_by(supp, dose_fct) %>%
+  summarise(
+    mean_len = mean(len),
+    sd_len = sd(len),
+    min_len = min(len),
+    max_len = max(len)
+  )
+```
+
+# What does this look like?
+
+```{r}
+nbins <- nclass.FD(tg$len)
+rng <- range(tg$len)
+bw = (rng[2] - rng[1])/nbins
+```
+
+## distribution of tooth length by supp tx
+```{r}
+g1 <-
+  tg %>%
+  ggplot(.,
+    aes(x = len,
+        fill = supp)
+  ) +
+  geom_histogram(
+    bins = nbins,
+    position = "dodge",
+    color = "black"
+  ) +
+  scale_fill_manual(values = c("orange", "yellow")) +
+  labs(title = "Distribution of tooth growth by supp type") +
+  xlab("tooth length") +
+  ylab("count") +
+  theme_bw()
+print(g1)
+```
+
+## distribution of tooth length by supp tx and dose
+```{r}
+g1 <-
+  tg %>%
+  ggplot(.,
+    aes(x = len,
+        fill = supp)
+  ) +
+  geom_histogram(
+    bins = nbins,
+    position = "dodge",
+    color = "black"
+  ) +
+  facet_wrap(~dose_fct) +
+  scale_fill_manual(values = c("orange", "yellow")) +
+  labs(title = "Distribution of tooth growth by supp type") +
+  xlab("tooth length") +
+  ylab("count") +
+  theme_bw()
+print(g1)
+```
+
+__What now?__  
+Is there a statitical difference between supplement type in their effect  
+on tooth growth? and is this difference _moderated_ by dose?
+
+```{r}
+# one approach
+mod1 <- t.test(len ~ supp, data = tg)
+# second approach
+mod2 <- lm(len ~ supp * dose_fct, data = tg)
+summary(mod2)
+contrasts(tg$supp)
+contrasts(tg$dose_fct)
+```
+
+
+```{r}
+g2 <-
+  tg %>%
+  ggplot(.,
+    aes(x = supp, y = len, fill = dose_fct)
+  ) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(
+    values = c("pink", "royalblue3", "violetred4")
+    ) +
+  labs(title = "Tooth Growth by Supplement and Dose") +
+  xlab("Supplement Type") +
+  ylab("Tooth Length") +
+  theme_bw()
+print(g2)
+```
+
+Let's put error bars on this graph!  
+SEM = stand dev/sqrt(n)
+What is SEM? stand error of the mean
+CI(95%) = mean ± 1.96 * SEM  
+
+A 95% confidence interval for a range of scores is
+constructed such that the population parameter
+will fall within this range in 95% of samples.  
+
+When we want more than just a best guess for a parameter, we can
+identify a range of plausible values.
+
+E.g., What’s a reasonable range of patient outcomes a drug could improve?
+
+```{r}
+sem_and_ci <-
+  tg %>% 
+  group_by(supp, dose_fct) %>% 
+  summarise(n = n(),
+            mean_len = mean(len),
+            se_len = sd(len)/sqrt(n),
+            ci_lower =
+              mean_len - qt(0.975, df = n-1) * se_len,
+            ci_upper =
+              mean_len + qt(0.975, df = n-1) * se_len
+            ) # For each tail covering .025 of the distribution
+print(sem_and_ci)
+```
+## SEM Bars
+```{r}
+g3 <-
+  sem_and_ci %>%
+  ggplot(., 
+         aes(x = supp, y = mean_len, fill = dose_fct)
+         ) +
+  geom_col(alpha = 0.5, position = "dodge") +
+  geom_errorbar(aes(ymin = mean_len - se_len, 
+                    ymax = mean_len + se_len),
+                width = .2,
+                position = position_dodge(.9)) +
+  scale_fill_manual(
+    values = c("pink", "royalblue3", "violetred4")
+    ) +
+  labs(title = "Tooth Growth by Supplement and Dose") +
+  xlab("Supplement Type") +
+  ylab("Tooth Length") +
+  theme_bw()
+print(g3)
+  
+```
+
+## CI bars
+```{r}
+g4 <-
+  sem_and_ci %>%
+  ggplot(., 
+         aes(x = supp, y = mean_len, fill = dose_fct)
+         ) +
+  geom_col(alpha = 0.5, position = "dodge") +
+  geom_errorbar(aes(ymin = ci_lower, 
+                    ymax = ci_upper),
+                width = .2,
+                position = position_dodge(.9)) +
+  scale_fill_manual(
+    values = c("pink", "royalblue3", "violetred4")
+    ) +
+  labs(title = "Tooth Growth by Supplement and Dose") +
+  xlab("Supplement Type") +
+  ylab("Tooth Length") +
+  theme_bw()
+print(g4)
+```
+
+## Box plot?  
+A boxplot splits the data set into quartiles.   
+The body of the boxplot consists of a "box" (hence, the name),   
+which goes from the first quartile (Q1) to the third quartile (Q3). 
+
+Within the box, a horizontal line is drawn at the Q2,   
+the median of the data set, and two vertical lines,   
+called whiskers, extend from the top and bottom of the box.   
+The bottom whisker goes from Q1 to the smallest non-outlier   
+in the data set, and the top whisker goes   
+from Q3 to the largest non-outlier.
+```{r}
+g5 <-
+  tg %>%
+  ggplot(.,
+         aes(x = supp, y = len, fill = dose_fct)) +
+  geom_boxplot(alpha = .5, width = 0.3) +
+  scale_fill_manual(
+    values = c("pink", "royalblue3", "violetred4")
+    ) +
+  labs(title = "Tooth Growth by Supplement and Dose") +
+  xlab("Supplement Type") +
+  ylab("Tooth Length") +
+  theme_bw()
+print(g5)
+```
+
+# If we have time...  
+
+Clean this dataset "https://www.kaggle.com/osmi/mental-health-in-tech-survey"  
+To click (CMD + click)
+```{r}
+ment_health_fp <- "/Users/jsschwartz/Dropbox/Stanford_Affective_Science/28b_SummerRtutorial/2019/survey.csv"
+ment_health_df <-
+  read_csv(ment_health_fp)
+```
+
+__What are our variables?__
+__Timestamp__  
+__Age__  
+__Gender__  
+__Country__  
+__state:__ If you live in the United States,  
+which state or territory do you live in? self_employed: Are you self-employed?    
+__family_history:__ Do you have a family history of mental illness?  
+__treatment:__ Have you sought treatment for a mental health condition?  
+__work_interfere:__ If you have a mental health condition,   
+do you feel that it interferes with your work?   
+__no_employees:__ How many employees does your company or organization have?  
+__remote_work:__ Do you work remotely (outside of an office)   
+at least 50% of the time?    
+__care_options:__ Do you know the options for mental health care   
+your employer provides?  
+__wellness_program:__ Has your employer ever discussed mental health   
+as part of an employee wellness program?  
+__seek_help:__ Does your employer provide resources to learn more   
+about mental health issues and how to seek help?  
+__anonymity:__ Is your anonymity protected if you choose to take   
+advantage of mental health or substance abuse treatment resources?  
+__leave:__ How easy is it for you to take medical leave  
+for a mental health condition?  
+__mental_health_consequence:__ Do you think that discussing a mental health  
+issue with your employer would have negative consequences?  
+__phys_health_consequence:__ Do you think that discussing a physical health  
+issue with your employer would have negative consequences?  
+__coworkers:__ Would you be willing to discuss a mental health issue  
+with your coworkers?  
+__supervisor:__ Would you be willing to discuss a mental health issue   
+with your direct supervisor(s)?  
+__mental_health_interview:__ Would you bring up a mental health issue  
+with a potential employer in an interview?  
+__phys_health_interview:__ Would you bring up a physical health issue  
+with a potential employer in an interview?  
+__mental_vs_physical:__ Do you feel that your employer takes mental health  
+as seriously as physical health?  
+__obs_consequence:__ Have you heard of or observed negative consequences   
+for coworkers with mental health conditions in your workplace?  
+__comments:__ Any additional notes or comments  
+
+## What about the data class/type of these variables?
+```{r}
+glimpse(ment_health_df)
+```
+## converting data types
+```{r}
+to_factor <-
+  function(x) as.factor(x)
+ment_health_df <-
+  ment_health_df %>%
+  mutate_at(vars(-Timestamp,-Age), 
+            to_factor) # don't need to do this with converting to factor,  
+# numeric, etc... types. But just showing you how you'd do this if you wanted  
+# to create a function for other purposes (e.g., scaling variables)
+```
+
+Continue cleaning for HW!  
+How do plan to get rid of people with unplausable resposnes? (e.g., just  
+scanning through the data I found someone with a negative age - yikes!).  
+You should also create a unique ID per row. 
+Is it useful to combine states to look by region? (NW, SW, MW, NE, SE, MidAt)  
+How do you want to deal with the "don't knows?"  
+How are you going to check for any weird responses? It's a lot of data  
+to manually scan!
+```{r}
+#maybe convert age to factor just to see what the levels are?
+ment_health_df_pos_age <-
+  ment_health_df %>%
+  mutate(age_f = as.factor(Age)) %>%
+  filter(Age > 0 &
+           Age < 100) %>%
+  mutate(age_f = as.factor(Age))
+```
+

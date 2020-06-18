@@ -1,0 +1,350 @@
+---
+title: "Week2"
+author: "Jackie Schwartz"
+date: "7/11/2019"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+  html_notebook:
+    toc: yes
+    toc_float: yes
+---
+
+Install these libraries first
+# Loading Libraries
+```{r}
+library(tidyverse)
+library(haven)
+library(modelr)
+library(readxl)
+library(NHANES)
+library(assertthat)
+library(datasets)
+```
+
+__Week 2 7/11/19: Goal 2__ 
+__Review W1 HW__
+__Data Cleaning__    
+_Continuing cleaning_  
+__Summarizing Data:__  
+_Determine the type of each variable in terms of R variable types_      
+_and scales of measurement (nominal, interval, ordinal, ratio)_     
+_What is the accurate measure of central tendency for each?_    
+_How can you describe the variance?_    
+_Think about whether you want to transform any variables_    
+_In order apply appropriate statistics:_  
+_some tests are meant for categorical variables,_     
+_and some are meant for continuous variables_  
+
+__Just some pointers:__
+_To see where you are: getwd()_  
+_To set your wd: setwd()_
+
+The purpose of today's session is to discuss visualization. You will learn:   
+
+- Why it is always a good idea to visualize your data  
+- Creating effective and accurate data visualizations  
+# Loading Libraries
+```{r}
+library(tidyverse)
+library(haven)
+library(modelr)
+library(readxl)
+library(NHANES)
+library(assertthat)
+library(datasets)
+```
+
+# An example from Psych 10 
+```{r}
+anscombe <- anscombe
+glimpse(anscombe)
+```
+
+The data consist of 8 sets of 11 numeric observations (in x,y pairs)   
+named X1, X2, X3, X4 and Y1, Y2, Y3, Y4
+
+## data wrangling
+```{r}
+# go through function by function
+anscombe_long <-
+  anscombe %>%
+  gather(key = name,
+         value = value) %>%
+  mutate(
+    number = str_extract(name, pattern = "[:digit:]"),
+    variable = str_extract(name, pattern = "[:alpha:]") 
+  ) %>%
+  select(-name)
+glimpse(anscombe_long)
+```
+In our lab, what would extracting digit from name be useful for??
+
+Now that we have our data in long form, we can summarize it using basic  
+summary stats:  
+measures of central tendency: mean, median, mode
+measures of variability: variance, stand dev
+```{r}
+sum_stats <-
+  anscombe_long %>%
+  mutate(
+    number = as.factor(number),
+    letter = as.factor(variable)
+  ) %>%
+  select(-variable) %>%
+  group_by(letter, number) %>%
+  summarize(
+    mean_val = mean(value),
+    sd_val = sd(value),
+    n_val = n()
+  )
+print(sum_stats)
+```
+Is x significantly different from y? Let's visualize:  
+## visualization
+```{r}
+# play with parameters to learn what they do
+# relation between x1 and y1
+a_graph <-
+  anscombe %>%
+  ggplot(., aes(x = x1, y = y1)) +
+  geom_point() +
+  scale_x_continuous(
+    limits = c(0,20)
+    ) +
+  scale_y_continuous(
+    limits = c(0,15)
+  ) +
+  geom_smooth(method = "lm",
+              color = "darkgrey") +
+  theme_bw()
+print(a_graph)
+
+# relation between x2 and y2
+b_graph <-
+  anscombe %>%
+  ggplot(., aes(x = x2, y = y2)) +
+  geom_point() +
+  scale_x_continuous(
+    limits = c(0,20)
+    ) +
+  scale_y_continuous(
+    limits = c(0,15)
+  ) +
+  geom_smooth(method = "lm",
+              color = "darkgrey") +
+  theme_bw()
+print(b_graph)
+
+# relation between x3 and y3
+c_graph <-
+  anscombe %>%
+  ggplot(., aes(x = x3, y = y3)) +
+  geom_point() +
+  scale_x_continuous(
+    limits = c(0,20)
+    ) +
+  scale_y_continuous(
+    limits = c(0,15)
+  ) +
+  geom_smooth(method = "lm",
+              color = "darkgrey") +
+  theme_bw()
+print(c_graph)
+# relation between x4 and y4
+d_graph <-
+  anscombe %>%
+  ggplot(., aes(x = x4, y = y4)) +
+  geom_point() +
+  scale_x_continuous(
+    limits = c(0,20)
+    ) +
+  scale_y_continuous(
+    limits = c(0,15)
+  ) +
+  geom_smooth(method = "lm",
+              color = "darkgrey") +
+  theme_bw()
+print(d_graph)
+
+cowplot::plot_grid(
+  a_graph,
+  b_graph,
+  c_graph,
+  d_graph
+)
+```
+
+```{r}
+x1y1_cor <- cor.test(anscombe$x1,
+         anscombe$y1, 
+         method = c("pearson"), 
+         conf.level = .95)
+x2y2_cor <- cor.test(anscombe$x2,
+         anscombe$y2, 
+         method = c("pearson"), 
+         conf.level = .95)
+x3y3_cor <- cor.test(anscombe$x3,
+         anscombe$y3, 
+         method = c("pearson"), 
+         conf.level = .95)
+x4y4_cor <- cor.test(anscombe$x3,
+         anscombe$y3, 
+         method = c("pearson"), 
+         conf.level = .95)
+```
+
+All four datasets are identical when computing a correlation statstic,  
+but look very different when plotted.  
+
+The takeaway from Anscombe's quartet is that without visualization  
+we would have arrived at the wrong conclusion about the relations btwn x and y.
+
+But, what's the first step? I would first look at the distribution of  
+each of my variables. If they are non-normal but we plan to use a model that  
+assumes normality, we need to transform those variables before applying the  
+model.
+
+# import data
+```{r}
+airquality <- airquality
+# OR
+airquality <- datasets::airquality
+glimpse(airquality)
+```
+
+What do you notice?  
+
+Often the first plot you want to make is a histogram -  
+a one dimensional plot that shows shape of distributions by binning a   
+continuous distribution and mapping the  
+count of an observation to the height of a colored bar.
+# histograms
+```{r}
+temp_hist <- airquality %>%
+  ggplot(.,aes(x = Temp)) +
+  geom_histogram(
+    bins = 30, color= "black", fill = "grey")
+print(temp_hist)
+```
+First what does this mean?   
+Second, how can we show something more meaningful?
+There are five different months: (coded 5-9 May, June, July, August, September).  
+So let's replot the data in a "grouped histogram" using the `fill` aesthetic  
+to encourage visual comparison of the different months. 
+
+Note the data class of Month...we may want to recode  
+to reflect the categorical nature of this variable.
+
+```{r}
+airquality <-
+  airquality %>%
+  mutate(
+    Month = as.factor(Month)
+  )
+
+nbins <- nclass.FD(airquality$Temp) # computing number of classes for histogram
+tempbymonth_hist <-
+  airquality %>%
+  ggplot(., aes(x = Temp, fill = Month)) +
+  geom_histogram(
+    bins = 5, position="dodge", color = "black") # or you can use the argument
+# binwidth instead of bins finding the range - range(Temp), then dividing difference 
+# in range by nbins
+rng_temp <- range(airquality$Temp)
+bw = (rng_temp[2] - rng_temp[1])/nbins
+print(tempbymonth_hist)
+
+```
+
+One key parameter for the histogram is the "bin width" controlled by  
+the `bins` argument. Play around with different values and see what happens. 
+
+__YOUR TURN__ Play with the `binwidth` argument  
+in `geom_histogram` to see what happens to the plot. 
+
+```{r, eval = F}
+
+```
+
+> What's going on here? 
+
+Another way to visualize distributions of data is the __dot/scatter plot__.   
+One advantage of the dotplot is that each dot maps onto a single  
+observation in the dataset, making it easy to get a sense of how  
+many degrees of temperature are in each group while showing  
+the central tendency, variability, and shape of the distributions.
+
+```{r}
+air_dot_graph <-
+  airquality %>%
+  ggplot(., aes(x = Temp, fill = Month)) +
+  geom_dotplot(method="histodot", binwidth = 2) +
+  scale_y_continuous(name = "", breaks = NULL) 
+print(air_dot_graph)
+# after playing with binwidth, seems that a little lower than what we calculated before is better for this visualization
+```
+
+## using more of the data in our histogram
+```{r}
+solar_temp_mo_graph <-
+  airquality %>%
+  ggplot(., aes(x=Solar.R, y=Temp, col = Month)) +
+  geom_point() 
+print(solar_temp_mo_graph)
+```
+
+Facets could help us add structure to the data.   
+Try adding `facet_wrap(~variable)`. 
+
+```{r}
+facet_graph <- 
+  airquality %>%
+  ggplot(., aes(x=Solar.R, y=Temp)) +
+  geom_point() + 
+  facet_wrap(~Month) + 
+  xlab("Solar Radiation") +
+  ylab("Temperature (degrees Farenheit)")
+print(facet_graph)
+```
+
+I can rename my Month labels as well to make this more meaningful
+```{r}
+airquality <-
+  airquality %>%
+  mutate(
+    Month_rec =
+      recode_factor(Month,
+        "5" = "May",
+        "6" = "June",
+        "7" = "July",
+        "8" = "August",
+        "9" = "September")
+  )
+facet_detailed <-
+  airquality %>%
+  ggplot(., aes(x=Solar.R, y=Temp)) +
+  geom_point() + 
+  facet_wrap(~Month_rec) + 
+  xlab("Solar Radiation") +
+  ylab("Temperature (degrees Farenheit)")
+print(facet_detailed)
+
+# I can also add a regression lines
+facet_association <-
+  airquality %>%
+  ggplot(., aes(x=Solar.R, y=Temp)) +
+  geom_point() + 
+  facet_wrap(~Month) + 
+  xlab("Solar Radiation") +
+  ylab("Temperature (degrees Farenheit)") +
+  labs(title="Association between Solar Radiation and Temperature by Month") +
+  geom_smooth(method = "lm") # Or for a quadratic trend: geom_smooth(method = "lm", formula = y ~ I(x^2)) 
+print(facet_association)
+```
+
+
+See with the linear regression line that each point has it's own error.   
+This is the residual- (the deviation from the point to the regression line,  
+or the difference between observed and predicted value).

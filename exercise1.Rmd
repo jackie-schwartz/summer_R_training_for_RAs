@@ -1,0 +1,235 @@
+---
+title: "Week1"
+author: "Jackie Schwartz"
+date: "6/26/2019"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+  html_notebook:
+    toc: yes
+    toc_float: yes
+---
+
+Install these libraries first
+# Loading Libraries
+```{r}
+library(tidyverse)
+library(haven)
+library(modelr)
+library(readxl)
+library(NHANES)
+library(assertthat)
+library(datasets)
+```
+
+__To Insert Chunk__  
+CMD+OPT+I
+```{r}
+
+```
+
+__Basics:__    
+_Installing Packages_ 
+_Loading Libraries_  
+_Importing data_  
+__Data Types__  
+_Learn R data types of variables_   
+__Data Cleaning__  
+_Changing variable names_  
+_Wide to long format; long to wide format_  
+_Changing levels within a factor_ 
+_How to replace values (e.g., “999” to NA)_  
+_Creating variables (e.g., creating a dummy variable or a “total” variable signifying sum of a scale)_  
+_We will be piping throughout_  
+
+# Reading in Data
+```{r}
+nh_df <- NHANES::NHANES
+# in this case package::df
+
+# airquality_df <-
+#  datasets::airquality
+```
+
+## Ways to view your data
+```{r}
+# glimpse(nh_df)
+# # View(nh_df)
+# # nh_df$Poverty
+# head(nhanes)
+```
+
+Look at num of observations and num of variables. Look at the `class` of  
+your variables.
+What do you notice about ID?
+Do you need to convert any variables?
+
+## Converting data type
+```{r}
+nhanes_convert <-
+  nh_df %>% # piping structure
+  mutate( # edits things
+    ID_fct = # new variable
+      as.factor(ID) # existing variable
+         )
+
+
+
+
+
+nhanes_convert <-
+  nh_df %>% 
+  mutate(
+    ID = as.factor(ID)
+    )
+
+
+```
+
+I'm interested in looking at the association between poor mental health  
+and hours of sleep in males and females under 30.  
+What variable would represent poor mental health?  Let's use `DaysMentHlthBad`  
+What variable would represent hours of sleep? `SleepHrsNight`  
+How to "filter" data to those under age 30.
+
+```{r}
+nhanes_under_thirty <-
+  nhanes_convert %>%
+  filter(
+    Age < 30
+  ) %>%
+  select(
+    ID,
+    Gender,
+    Age,
+    DaysMentHlthBad,
+    SleepHrsNight
+    )
+```
+
+### how can we confirm that we are only capturing those under 30 yrs old?
+```{r}
+nhanes_under_thirty <-
+  nhanes_under_thirty %>%
+  mutate(
+    under_thirty =
+      Age < 30)
+# just to check that our larger dataframe has falses
+nh_df <-
+  nh_df %>%
+  mutate(
+    under_thirty =
+      Age < 30)
+```
+
+Ok, so now we have our under 30 dataframe we are going to work from.  
+
+## add a variable that bins ages  
+_changes continuous variable to categorical variable_
+0-5  
+6-10  
+11-15  
+15-20  
+21-25  
+25-30
+```{r}
+nhanes_clean <-
+  nhanes_under_thirty %>%
+  mutate(
+    age_bin = 
+      ifelse(Age < 6,
+             "0-5", 
+             NA),
+    age_bin =
+      ifelse(
+        Age > 5 &
+          Age < 11,
+        "6-10",
+        age_bin
+      ),
+    age_bin =
+      ifelse(
+        Age > 10 & 
+          Age < 16,
+        "11-15",
+        age_bin
+      ),
+    age_bin =
+      ifelse(
+        Age > 15 &
+          Age < 21,
+        "16-20",
+        age_bin
+      ),
+    age_bin =
+      ifelse(
+        Age > 20 &
+          Age < 26,
+        "21-25",
+        age_bin
+      ),
+    age_bin =
+      ifelse(
+        Age > 25 &
+          Age < 31,
+        "26-30",
+        age_bin
+      )
+  )
+### continue with the rest
+```
+Think about what this if else statement is useful for! 999s 888s
+ifelse(variable == "999" | "888",
+NA,
+variable)
+ifelse(variable == "999",
+"missing",
+variable)
+ifelse(variable == "888",
+"not_admin",
+variable)
+## recoding age factor  
+_changing levels of a factor_
+```{r}
+nhanes_clean <-
+  nhanes_clean %>%
+  mutate(
+    age_bin =
+      as.factor(age_bin)
+  ) %>%
+  mutate(age_bin_rec =
+           recode_factor(
+             age_bin,
+             "0-5" = "0", # left side of = is original, right side is new
+             "6-10" = "1",
+             "11-15" = "2",
+             "16-20" = "3",
+             "21-25" = "4",
+             "26-30" = "5")
+         ) %>%
+  mutate(gender_rec=
+           recode_factor(
+             Gender,
+             "male" = "0",
+             "female" = "1"
+           )
+         ) %>%
+  select(-c(Gender, under_thirty))
+```
+
+# 
+KNIT!
+```{r}
+nhanes_reorder <-
+  nhanes_clean %>%
+  select(
+    ID, 
+    Age,
+    age_bin,
+    gender_rec,
+    everything()
+  )
+```
+
+

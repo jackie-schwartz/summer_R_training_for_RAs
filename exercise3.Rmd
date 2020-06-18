@@ -1,0 +1,405 @@
+---
+title: "Week3"
+author: "Jackie Schwartz"
+date: "7/15/2019"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+  html_notebook:
+    toc: yes
+    toc_float: yes
+---
+
+Directions: Import the Titanic dataset (from R datasets package) 
+*Briefly* describe it in words   
+(e.g., how many variables, observations, what the variables mean)
+Make summary table first describing people who survived vs. not survived.  
+Make second summary table describing people who survived by sex and age.   
+Make a third summary table describing people who survived by class.
+Graph the distribution of Freq by suvivial, age, sex, and class   
+(have fun with this part - can do multiple graphs.   
+I want to see the progression of structure in the data).
+
+Install these libraries first
+# Loading Libraries
+```{r}
+library(tidyverse)
+library(haven)
+library(modelr)
+library(readxl)
+library(NHANES)
+library(assertthat)
+library(datasets)
+```
+
+# loading df
+```{r}
+titanic <- data.frame(datasets::Titanic)
+glimpse(titanic)
+```
+There was a good question about the contents of "glimpse."  
+It's not like head which shows the first 5/6 rows.  
+It shows all the variables.
+
+# Summary Table 1:  
+Make summary table first describing people who survived vs. not survived.  
+```{r}
+sum_table1 <-
+  titanic %>%
+  group_by(Survived) %>%
+  summarise(
+    mean = mean(Freq),
+    sd = sd(Freq),
+    n = n()
+  )
+print(sum_table1)
+```
+
+# Summary Table 2:  
+Make second summary table describing people who survived by sex and age.
+```{r}
+sum_table2 <-
+  titanic %>%
+  group_by(Survived, Sex, Age) %>%
+  summarise(
+    mean = mean(Freq),
+    sd = sd(Freq),
+    n = n()
+  )
+print(sum_table2)
+```
+
+# Sumary Table 3:  
+Make a third summary table describing people who survived by class.
+```{r}
+sum_table3 <-
+  titanic %>%
+  group_by(Survived, Class) %>%
+  summarise(
+    mean = mean(Freq),
+    sd = sd(Freq),
+    n = n()
+  )
+print(sum_table3)
+```
+
+
+REMEMBER WITH HISTOGRAMS YOU ARE ONLY FILLING IN THE X AXIS. THE Y AXIS  
+IS "COUNT", NOT ANY EXISTING VARIABLE FROM YOUR DATAFRAME.  
+Graph the distribution of Freq by suvivial, age, sex, and class 
+```{r}
+nbins <- nclass.FD(titanic$Freq)
+rng <- range(titanic$Freq)
+bw = (rng[2] - rng[1])/nbins
+```
+
+# G1
+```{r}
+g1 <- titanic %>%
+  ggplot(.,
+         aes(x=Freq, fill = Survived)) +
+  geom_histogram(
+    bins = nbins,
+    position = "dodge",
+    color = "black",
+  )
+print(g1)
+```
+
+# G2
+```{r}
+g2 <- titanic %>%
+  ggplot(.,
+         aes(x=Freq, fill = Survived)) +
+  facet_wrap(~Age) +
+  geom_histogram(
+    bins = 5,
+    position = "dodge",
+    color = "black"
+  )
+print(g2)
+```
+
+# G3
+```{r}
+g3 <- titanic %>%
+  ggplot(.,
+         aes(x=Freq, fill = Survived)) +
+  facet_grid(Sex~Age) +
+  geom_histogram(
+    bins = nbins,
+    position = "dodge",
+    color = "black"
+  )
+print(g3)
+```
+
+# G4
+```{r}
+g4 <- titanic %>%
+  ggplot(.,
+         aes(x=Freq, fill = Survived)) +
+  facet_grid(Sex~Age + Class) +
+  geom_histogram(
+    bins = 3,
+    position = "dodge",
+    color = "black"
+  ) +
+  theme(
+    axis.text = element_text(hjust = 1, angle = 60)
+  )
+print(g4)
+```
+
+
+__Week 3 7/16/19: Goal 3__ 
+__Review W2 HW__
+__Continue Data Viz__  
+
+## Error Bars and CI bars: What do they mean?
+
+__CI__
+A confidence interval provides an estimated range for a   
+population parameter based on the sample mean, not the level   
+of confidence (usually 95%), and standard error.   
+
+A 95% confidence interval for a range of scores is
+constructed such that the population parameter
+will fall within this range in 95% of samples.  
+![95% CI.](/Users/jsschwartz/Dropbox/Stanford_Affective_Science/28b_SummerRtutorial/2019/95percCI.jpeg)
+This website does a really good job explaining it: http://sphweb.bumc.bu.edu/otlt/MPH-Modules/BS/BS704_Confidence_Intervals/BS704_Confidence_Intervals_print.html  
+
+Remember: When we compute a statistic on a sample, it will have some  
+amount of error (compared to the true population parameter).  
+The amount of error varies from sample to sample. The distribution of sample  
+statistics, across different amounts of error, is called the  
+sampling distribution.  
+We use a confidence interval to express the precision and uncertainty
+associated with a particular sampling method. With a 95% confidence interval,   
+if we take 100 samples from a population, we expect 5 of the  
+intervals not to contain the true mean. 
+
+__How to calculate CI:__
+SEM = stand dev/sqrt(n)
+What is SEM? stand error of the mean
+CI(95%) = mean ± 1.96 * SEM
+
+If you are comparing groups, and the  SEM bars overlap, there  
+is no statistical difference between the groups. If they do not overlap, you  
+can be pretty sure that there is a statistical difference. 
+That means the groups distributions look like this:  
+
+![Difference Between Groups in terms of Distributions.](/Users/jsschwartz/Dropbox/Stanford_Affective_Science/28b_SummerRtutorial/2019/diffbtwngrps.png)
+CI bars are different from SEM bars.The same rules about overlapping bars  
+do not apply here. We like using CI bars more often then SEM bars because  
+CI bars don't assume that your sampling distirbution is normal.  
+With CI bars you are asking how reliable is your point estimate. 
+
+What is that 1.96?  
+It's the t critical value (determined by df and alpha).. 
+If your t-stat (formula below) lies above the critical value, you can say  
+that your effect  does not lie within the null distribution.   
+So you reject the null.
+
+![Calculating t-stat.](/Users/jsschwartz/Dropbox/Stanford_Affective_Science/28b_SummerRtutorial/2019/tstat.png)
+
+
+![Calculating 2 sample t-stat.](/Users/jsschwartz/Dropbox/Stanford_Affective_Science/28b_SummerRtutorial/2019/2sampttest.png)
+denominator is the pooled variance. So if your SEM is small,   
+your t-statistic is...?    
+
+# AN EXMAPLE:  
+```{r}
+airquality <-
+  airquality %>%
+  mutate(
+    Month_rec =
+      recode_factor(Month,
+        "5" = "May",
+        "6" = "June",
+        "7" = "July",
+        "8" = "August",
+        "9" = "September")
+  )
+```
+
+```{r}
+sdtemp <- sd(airquality$Temp)
+num_obs <- length(airquality$Temp)
+
+qt(.05/2, df = 30) * (sdtemp/sqrt(n))
+
+
+mean_and_ci <-
+  airquality %>% 
+  group_by(Month_rec) %>% 
+  summarise(num_obs = n(),
+            mean_temp = mean(Temp),
+            ci_lower =
+              mean_temp - qt(0.975, df = num_obs-1) * sd(Temp)/sqrt(num_obs),
+            ci_upper =
+              mean_temp + qt(0.975, df = num_obs-1) * sd(Temp)/sqrt(num_obs)
+            )
+mean_and_ci
+```
+
+__YOUR TURN__  
+I would approach this problem in R by starting with   
+a __bar plot__ where the height of the bar maps to the mean   
+of each group and the length of the error bars map   
+to the width of the confidence interval. 
+
+
+```{r}
+g1 <-
+  mean_and_ci %>%
+  ggplot(., aes(x = Month_rec, y = mean_temp)) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(
+    ymin = ci_lower, ymax = ci_upper)
+    ) 
+print(g1)
+```
+
+> Ok, let's discuss! What do we like? What do we not like?   
+> And how would you change it? 
+
+Let's try to improve our information to ink ratio by   
+changing the bars to points and removing the horizontal   
+lines from the confidence interval. 
+
+```{r}
+g2 <-
+  mean_and_ci %>%
+  ggplot(., aes(x=Month_rec, y = mean_temp)) +
+  geom_pointrange(aes(
+    ymin = ci_lower, ymax = ci_upper)
+    ) 
+```
+
+> This looks a little cleaner,   
+> but how could we make it even more informative? What's missing?
+
+If we wanted to communicate information about the distribution,   
+summary statistics, and confidence intervals, the   
+__boxplot__ is a pretty useful tool.They are sooo underused, but I think  
+incredibly informative.
+
+```{r}
+May <- airquality[which(airquality$Month_rec == "May"),]
+May_mean <- mean(May$Temp)
+
+Sept <-
+  airquality[
+    which(airquality$Month_rec == "September"),
+    ]
+Sept_mean <- mean(Sept$Temp)
+
+mean_and_ci <- 
+  mean_and_ci %>% 
+  mutate(
+    Temp = mean_temp
+    )
+
+g3 <-
+  airquality %>%
+  ggplot(., 
+         aes(x = Month_rec,
+             y = Temp)
+         ) +
+  geom_boxplot(width = 0.3) +
+  ylim(50, 100) +
+  geom_hline(yintercept = May_mean,
+    linetype = "dashed",
+    color = "pink") +
+  geom_hline(yintercept = Sept_mean,
+    linetype = "dashed",
+    color = "black") +
+  annotate(geom = "text", 
+    x = 0.65,
+    y = 63, 
+    label = "65.5 \n degrees in May", 
+    color = "pink") +
+  annotate(geom = "text",
+    x = 0.65,
+    y = 74, 
+    label = "76.9 \n degrees", 
+    color = "black") +
+  labs(x = "Month",
+       y = "Avg. Temperature (degrees Farenheit)"
+       ) 
+```
+__Pointers__
+A boxplot splits the data set into quartiles.   
+The body of the boxplot consists of a "box" (hence, the name),   
+which goes from the first quartile (Q1) to the third quartile (Q3). 
+
+Within the box, a horizontal line is drawn at the Q2,   
+the median of the data set, and two vertical lines,   
+called whiskers, extend from the top and bottom of the box.   
+The bottom whisker goes from Q1 to the smallest non-outlier   
+in the data set, and the top whisker goes   
+from Q3 to the largest non-outlier.
+
+You can also see whether there is skew in the data.  
+If most of the observations are concentrated  
+on the low end of the scale, the distribution   
+is skewed right; and vice versa.   
+If a distribution is symmetric, the observations   
+will be evenly split at the median,  
+as shown above in the middle figure.
+
+__YOUR TURN__  
+Let's practice interpreting the box plot  
+above by answering the following questions:   
+
+* What's the median for each group?   
+* The Range?   
+* The Interquartile Range (IQR)  
+* Is there evidence of skew in any of the groups?   
+
+> See how the mean line for May is slighlty below the median,   
+and for September, the mean line is slightly above the median.... 
+When the mean is greater than the median,   
+the distribution is skewed to the right  
+(the "tail" stretches towards the right-positive skew!   
+there is a long tail in the positive direction of the number line).   
+The sd is a measure of variability (or spread) of the distribution.
+
+But, notice that we lost some information from the previous plot that would help us with visual inference (drawing conclusions about whether the population means are different from one another) -- the confidence intervals.
+
+> How could we put that information back on the plot?
+
+```{r}
+g4 <-
+  airquality %>%
+  ggplot(., aes(x = Month_rec, y = Temp)) +
+  geom_boxplot(width = 0.3) +
+  geom_pointrange(aes(ymin = ci_lower, 
+                      ymax = ci_upper),
+                  color = "violetred1", 
+                  data = mean_and_ci) +
+  ylim(50, 100) +
+  geom_hline(yintercept = May_mean, 
+             linetype = 
+               "dashed",
+             color = "thistle4") +
+  geom_hline(yintercept = Sept_mean,
+             linetype = "dashed", 
+             color = "thistle4") +
+  annotate(geom = "text", 
+           x = 0.65, 
+           y = 63, 
+           label = "65.5 \n degrees", 
+           color = "thistle4") +
+  annotate(geom = "text",
+           x = 0.65,
+           y = 74, 
+           label = "76.9 \n degrees", 
+           color = "thistle4") +
+  labs(x = "Month", 
+       y = "Avg. Temperature (degrees Farenheit)",
+       title = "Distribution of Temperature by Month"
+       ) 
+```
